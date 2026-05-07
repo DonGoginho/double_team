@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hundebestand Stadt Zürich</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      line-height: 1.6;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0d47a1, #1565c0);
+      color: white;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      font-size: 1.05rem;
+      opacity: 0.85;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+
+    .chart-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .chart-card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .chart-card .subtitle {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      max-height: 480px;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .kpi {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+    }
+
+    .kpi .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #0d47a1;
+    }
+
+    .kpi .label {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      font-size: 0.8rem;
+      color: #999;
+    }
+
+    footer a { color: #1565c0; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    .table-card table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .table-card th {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 2px solid #e0e0e0;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      color: #444;
+      font-weight: 600;
+    }
+
+    .table-card th:hover { color: #0d47a1; }
+    .table-card th .sort-arrow { font-size: 0.7rem; margin-left: 0.3rem; opacity: 0.4; }
+    .table-card th.sorted .sort-arrow { opacity: 1; color: #0d47a1; }
+
+    .table-card td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .table-card tr:hover td { background: #f5f7fa; }
+
+    .rasse-name a { color: #1a1a2e; text-decoration: none; border-bottom: 1px dashed #aaa; }
+    .rasse-name a:hover { color: #0d47a1; border-bottom-color: #0d47a1; }
+
+    .table-card td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.8rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .badge.pos { background: #e8f5e9; color: #2e7d32; }
+    .badge.neg { background: #fce4ec; color: #c62828; }
+    .badge.zero { background: #f5f5f5; color: #666; }
+
+    .table-filter {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+
+    .table-filter input {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .table-filter input:focus { border-color: #0d47a1; }
+
+    .pyramid-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+    }
+
+    .pyramid-cell {
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 0.5rem;
+      text-align: center;
+    }
+
+    .pyramid-cell h3 {
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #333;
+    }
+
+    .pyramid-cell canvas { width: 100% !important; height: 140px !important; }
+
+    @media (max-width: 900px) { .pyramid-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 550px) { .pyramid-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .rasse-name { cursor: default; }
+
+    #rasseTooltip {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      padding: 6px;
+      pointer-events: none;
+    }
+
+    #rasseTooltip img {
+      display: block;
+      width: 240px;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #f9f9f9;
+    }
+
+    #rasseTooltip .tt-label {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #999;
+      padding: 4px 0 2px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Hundebestand der Stadt Zürich</h1>
+  <p>Interaktive Auswertung auf Basis der Open-Data-Daten der Stadtpolizei Zürich</p>
+</header>
+
+<main>
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="value">10 241</div>
+      <div class="label">Hunde im Jahr 2025</div>
+    </div>
+    <div class="kpi">
+      <div class="value">+40,5 %</div>
+      <div class="label">Zuwachs seit 2014</div>
+    </div>
+    <div class="kpi">
+      <div class="value">+2 951</div>
+      <div class="label">Mehr Hunde als 2014</div>
+    </div>
+    <div class="kpi">
+      <div class="value">308</div>
+      <div class="label">Verschiedene Rassen</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Zeitlicher Verlauf des Hundebestands</h2>
+    <p class="subtitle">Anzahl registrierter Hunde per 31. Dezember, 2014 – 2025</p>
+    <div class="chart-wrap">
+      <canvas id="chartBestand"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Hundebestand nach Geschlecht des Hundes</h2>
+    <p class="subtitle">Anzahl registrierter Hunde nach Geschlecht des Hundes per 31. Dezember, 2014 – 2025</p>
+    <div class="chart-wrap">
+      <canvas id="chartGeschlecht"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Top-5-Rassen nach Stadtkreis im Zeitverlauf</h2>
+    <p class="subtitle">Die fünf häufigsten Rassen 2025 des gewählten Kreises, Verlauf 2014 – 2025</p>
+    <div style="margin-bottom: 1rem;">
+      <select id="kreisSelect" style="padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; outline: none;">
+        <option value="Kreis 1">Kreis 1</option>
+        <option value="Kreis 2">Kreis 2</option>
+        <option value="Kreis 3">Kreis 3</option>
+        <option value="Kreis 4">Kreis 4</option>
+        <option value="Kreis 5">Kreis 5</option>
+        <option value="Kreis 6">Kreis 6</option>
+        <option value="Kreis 7" selected>Kreis 7</option>
+        <option value="Kreis 8">Kreis 8</option>
+        <option value="Kreis 9">Kreis 9</option>
+        <option value="Kreis 10">Kreis 10</option>
+        <option value="Kreis 11">Kreis 11</option>
+        <option value="Kreis 12">Kreis 12</option>
+      </select>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartKreis"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h2>Alterspyramiden der 25 beliebtesten Rassen</h2>
+    <p class="subtitle">Altersverteilung nach Geschlecht des Hundes, Stand 2025. Blau = männlich (links), Rot = weiblich (rechts).</p>
+    <div class="pyramid-grid" id="pyramidGrid"></div>
+  </div>
+
+  <div class="chart-card table-card">
+    <h2>Die 40 häufigsten Hunderassen</h2>
+    <p class="subtitle">Bestand per 31. Dezember 2025 mit Veränderung zum Vorjahr</p>
+    <div class="table-filter">
+      <input type="text" id="rassenFilter" placeholder="Rasse suchen …">
+    </div>
+    <table id="rassenTabelle">
+      <thead>
+        <tr>
+          <th data-col="rang">Rang <span class="sort-arrow">&#9650;</span></th>
+          <th data-col="rasse">Rasse <span class="sort-arrow">&#9650;</span></th>
+          <th data-col="anzahl2025">Anzahl 2025 <span class="sort-arrow">&#9650;</span></th>
+          <th data-col="anzahl2024">Anzahl 2024 <span class="sort-arrow">&#9650;</span></th>
+          <th data-col="diff">Veränderung <span class="sort-arrow">&#9650;</span></th>
+        </tr>
+      </thead>
+      <tbody id="rassenBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<div id="rasseTooltip">
+  <img id="rasseTooltipImg" src="" alt="">
+  <div class="tt-label">Bild: Wikipedia</div>
+</div>
+
+<footer>
+  Datenquelle:
+  <a href="https://data.stadt-zuerich.ch/dataset/sid_stapo_hundebestand_od1001" target="_blank" rel="noopener">
+    Aktueller Hundebestand der Stadt Zürich (OGD)
+  </a>
+  – Hundekontrolle, Stadtpolizei Zürich &middot; Lizenz: CC0
+</footer>
+
+<script>
+const jahre = [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
+const bestand = [7290, 7256, 7436, 7705, 7900, 8017, 8764, 9354, 9676, 9981, 9998, 10241];
+
+const ctx = document.getElementById('chartBestand').getContext('2d');
+
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: jahre,
+    datasets: [{
+      label: 'Anzahl Hunde',
+      data: bestand,
+      borderColor: '#0d47a1',
+      backgroundColor: 'rgba(13, 71, 161, 0.08)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      pointBackgroundColor: '#0d47a1',
+      borderWidth: 2.5,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    interaction: {
+      intersect: false,
+      mode: 'index',
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a1a2e',
+        titleFont: { size: 14 },
+        bodyFont: { size: 13 },
+        padding: 12,
+        callbacks: {
+          label: ctx => {
+            const val = ctx.parsed.y.toLocaleString('de-CH');
+            const idx = ctx.dataIndex;
+            if (idx === 0) return `${val} Hunde`;
+            const prev = bestand[idx - 1];
+            const diff = ctx.parsed.y - prev;
+            const sign = diff >= 0 ? '+' : '';
+            return `${val} Hunde (${sign}${diff.toLocaleString('de-CH')} zum Vorjahr)`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 13 } },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: { size: 13 },
+          callback: v => v.toLocaleString('de-CH'),
+        },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+      }
+    }
+  }
+});
+
+const maennlich = [3614, 3615, 3707, 3835, 3988, 4002, 4408, 4755, 4927, 5045, 5033, 5076];
+const weiblich  = [3676, 3641, 3729, 3870, 3912, 4015, 4356, 4599, 4749, 4936, 4965, 5165];
+
+new Chart(document.getElementById('chartGeschlecht').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: jahre,
+    datasets: [
+      {
+        label: 'Männlich',
+        data: maennlich,
+        borderColor: '#1565c0',
+        backgroundColor: 'rgba(21, 101, 192, 0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        pointBackgroundColor: '#1565c0',
+        borderWidth: 2.5,
+      },
+      {
+        label: 'Weiblich',
+        data: weiblich,
+        borderColor: '#c62828',
+        backgroundColor: 'rgba(198, 40, 40, 0.08)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        pointBackgroundColor: '#c62828',
+        borderWidth: 2.5,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    interaction: { intersect: false, mode: 'index' },
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: { usePointStyle: true, padding: 20, font: { size: 13 } },
+      },
+      tooltip: {
+        backgroundColor: '#1a1a2e',
+        titleFont: { size: 14 },
+        bodyFont: { size: 13 },
+        padding: 12,
+        callbacks: {
+          label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('de-CH')} Hunde`,
+        }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+      y: {
+        beginAtZero: true,
+        ticks: { font: { size: 13 }, callback: v => v.toLocaleString('de-CH') },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+      }
+    }
+  }
+});
+
+const rassen = [
+  { rasse: 'Labrador Retriever',              a25: 648, a24: 665 },
+  { rasse: 'Chihuahua',                       a25: 505, a24: 497 },
+  { rasse: 'Malteser',                        a25: 404, a24: 359 },
+  { rasse: 'Französische Bulldogge',          a25: 344, a24: 356 },
+  { rasse: 'Jack Russell Terrier',            a25: 321, a24: 307 },
+  { rasse: 'Yorkshire Terrier',               a25: 318, a24: 337 },
+  { rasse: 'Deutscher Zwergspitz/Pomeranian', a25: 297, a24: 289 },
+  { rasse: 'Golden Retriever',                a25: 283, a24: 255 },
+  { rasse: 'Kleinpudel',                      a25: 248, a24: 231 },
+  { rasse: 'Standarddachshund',               a25: 229, a24: 224 },
+  { rasse: 'Border Collie',                   a25: 192, a24: 182 },
+  { rasse: 'Zwergpudel',                      a25: 177, a24: 160 },
+  { rasse: 'Englischer Cocker Spaniel',       a25: 165, a24: 159 },
+  { rasse: 'Wasserhund der Romagna',          a25: 152, a24: 145 },
+  { rasse: 'Mops',                            a25: 145, a24: 155 },
+  { rasse: 'Shih Tzu',                        a25: 142, a24: 137 },
+  { rasse: 'Australischer Schäferhund',       a25: 141, a24: 132 },
+  { rasse: 'Zwergdachshund',                  a25: 137, a24: 111 },
+  { rasse: 'Deutscher Schäferhund',           a25: 135, a24: 131 },
+  { rasse: 'Beagle',                          a25: 131, a24: 126 },
+  { rasse: 'Havaneser',                       a25: 129, a24: 121 },
+  { rasse: 'Toypudel',                        a25: 121, a24:  98 },
+  { rasse: 'Cavalier King Charles Spaniel',   a25:  93, a24:  83 },
+  { rasse: 'Deutscher Kleinspitz',            a25:  90, a24:  92 },
+  { rasse: 'Bolonka Zwetna',                  a25:  89, a24:  93 },
+  { rasse: 'Shiba',                           a25:  87, a24:  81 },
+  { rasse: 'Zwergschnauzer',                  a25:  82, a24:  74 },
+  { rasse: 'Zwergpinscher',                   a25:  82, a24:  85 },
+  { rasse: 'Siberian Husky',                  a25:  82, a24:  81 },
+  { rasse: 'Appenzeller Sennenhund',          a25:  78, a24:  73 },
+  { rasse: 'Grosspudel',                      a25:  76, a24:  72 },
+  { rasse: 'Parson Russell Terrier',          a25:  74, a24:  93 },
+  { rasse: 'Berner Sennenhund',               a25:  64, a24:  64 },
+  { rasse: 'Bulldog',                         a25:  63, a24:  78 },
+  { rasse: 'West Highland White Terrier',     a25:  61, a24:  59 },
+  { rasse: 'Boston Terrier',                  a25:  58, a24:  63 },
+  { rasse: 'Kurzhaariger Ungarischer Vorstehhund', a25: 58, a24: 52 },
+  { rasse: 'Flat Coated Retriever',           a25:  56, a24:  55 },
+  { rasse: 'Rhodesian Ridgeback',             a25:  53, a24:  51 },
+  { rasse: 'Bichon Frise',                    a25:  52, a24:  53 },
+];
+
+const kreisData = {
+  'Kreis 1': {
+    'Standarddachshund': [0,2,2,2,2,1,1,3,3,5,5,8],
+    'Zwergpudel': [1,0,0,0,1,1,4,3,3,3,4,7],
+    'Zwergdachshund': [1,1,2,3,3,3,3,3,4,6,8,7],
+    'Chihuahua': [10,11,12,10,11,9,8,6,8,7,5,6],
+    'Kleinpudel': [0,0,0,0,1,1,1,2,2,4,6,5],
+    'Französische Bulldogge': [6,4,5,8,7,8,9,8,6,8,7,4],
+    'Jack Russell Terrier': [4,4,6,5,13,5,5,4,3,7,4,4],
+    'Labrador Retriever': [4,5,4,5,5,6,5,4,6,5,5,3],
+    'Malteser': [4,3,4,3,3,3,4,4,3,1,2,2],
+    'Yorkshire Terrier': [4,4,4,6,5,3,4,3,3,6,6,4],
+  },
+  'Kreis 2': {
+    'Labrador Retriever': [55,55,54,48,44,47,59,59,62,66,68,72],
+    'Golden Retriever': [25,24,23,23,21,22,25,28,35,42,44,45],
+    'Chihuahua': [44,42,46,60,60,63,62,62,57,52,50,42],
+    'Malteser': [10,11,14,17,19,15,19,21,26,27,31,42],
+    'Jack Russell Terrier': [29,29,28,31,31,30,32,28,31,31,35,35],
+    'Französische Bulldogge': [14,12,12,15,19,26,27,35,33,33,30,25],
+    'Yorkshire Terrier': [15,17,20,22,23,20,24,25,25,25,24,25],
+    'Kleinpudel': [0,1,2,2,3,3,4,5,11,15,17,19],
+  },
+  'Kreis 3': {
+    'Labrador Retriever': [39,39,37,41,47,53,61,54,54,53,57,57],
+    'Malteser': [25,23,24,23,23,21,23,29,35,35,37,42],
+    'Chihuahua': [60,56,51,58,50,50,46,41,45,39,45,42],
+    'Französische Bulldogge': [22,25,27,26,26,32,33,35,35,39,41,40],
+    'Jack Russell Terrier': [34,39,29,29,27,30,32,29,29,34,31,31],
+    'Yorkshire Terrier': [18,18,20,20,18,17,18,18,15,21,23,23],
+    'Kleinpudel': [2,2,1,2,2,2,5,6,12,13,19,21],
+  },
+  'Kreis 4': {
+    'Chihuahua': [29,28,41,44,40,37,37,40,37,43,43,43],
+    'Französische Bulldogge': [19,22,26,26,23,25,33,33,33,32,28,32],
+    'Malteser': [15,21,22,22,17,20,22,26,25,31,24,25],
+    'Jack Russell Terrier': [33,31,28,21,22,23,23,23,20,17,21,24],
+    'Labrador Retriever': [14,14,12,9,12,16,15,17,26,23,24,21],
+    'Deutscher Zwergspitz/Pomeranian': [2,1,3,8,8,12,10,10,16,22,18,18],
+  },
+  'Kreis 5': {
+    'Labrador Retriever': [13,13,16,16,15,12,16,23,26,27,25,22],
+    'Französische Bulldogge': [6,7,12,15,14,18,18,17,19,16,18,17],
+    'Chihuahua': [9,11,20,18,17,22,15,19,19,14,11,16],
+    'Malteser': [3,3,1,5,5,5,5,6,5,7,9,13],
+    'Kleinpudel': [1,1,1,1,1,3,3,6,8,10,12,12],
+    'Deutscher Zwergspitz/Pomeranian': [3,3,7,6,8,9,12,15,14,11,13,10],
+  },
+  'Kreis 6': {
+    'Labrador Retriever': [39,34,37,42,37,40,49,41,45,49,47,46],
+    'Jack Russell Terrier': [30,30,30,31,28,27,24,24,24,24,23,26],
+    'Kleinpudel': [1,1,3,7,7,8,11,19,19,21,20,24],
+    'Golden Retriever': [11,11,12,10,11,13,13,15,15,16,21,23],
+    'Chihuahua': [19,21,24,23,24,29,32,31,23,18,18,23],
+    'Malteser': [8,7,8,10,12,13,16,15,18,16,19,22],
+  },
+  'Kreis 7': {
+    'Labrador Retriever': [100,97,97,98,102,102,120,128,137,140,128,111],
+    'Golden Retriever': [36,34,31,31,33,36,38,41,41,47,45,50],
+    'Malteser': [24,21,22,22,24,25,23,33,35,37,35,41],
+    'Kleinpudel': [7,7,8,11,11,12,17,22,26,30,39,41],
+    'Englischer Cocker Spaniel': [6,6,8,9,11,13,18,23,27,31,32,35],
+    'Jack Russell Terrier': [33,30,29,30,35,33,33,34,35,34,33,34],
+    'Französische Bulldogge': [14,20,18,20,26,24,29,27,33,36,33,34],
+    'Standarddachshund': [4,4,6,6,8,9,15,20,26,30,36,34],
+  },
+  'Kreis 8': {
+    'Labrador Retriever': [26,27,25,31,30,29,32,36,38,44,47,48],
+    'Chihuahua': [13,14,16,17,22,20,24,20,23,19,21,25],
+    'Kleinpudel': [3,3,5,5,5,5,7,9,10,16,20,21],
+    'Malteser': [9,11,9,9,11,15,15,18,23,21,22,21],
+    'Standarddachshund': [3,5,4,4,5,5,7,9,12,12,21,21],
+    'Zwergpudel': [8,9,8,7,7,7,8,11,9,11,17,18],
+  },
+  'Kreis 9': {
+    'Chihuahua': [84,78,75,89,75,80,87,83,83,87,83,90],
+    'Labrador Retriever': [52,52,50,52,57,55,63,64,62,69,75,73],
+    'Deutscher Zwergspitz/Pomeranian': [14,10,14,21,24,32,33,39,44,50,60,58],
+    'Malteser': [26,29,29,30,30,31,40,41,37,41,44,45],
+    'Französische Bulldogge': [16,18,23,35,42,50,55,48,42,50,45,44],
+    'Jack Russell Terrier': [48,46,44,42,39,40,45,42,39,44,43,40],
+    'Yorkshire Terrier': [58,62,58,80,75,46,47,49,55,54,50,37],
+  },
+  'Kreis 10': {
+    'Labrador Retriever': [54,54,55,54,56,53,52,62,65,67,66,67],
+    'Jack Russell Terrier': [25,32,33,35,36,33,31,34,31,30,32,31],
+    'Standarddachshund': [9,9,9,12,12,13,13,18,19,22,25,30],
+    'Golden Retriever': [24,22,11,14,14,11,12,18,20,22,23,27],
+    'Malteser': [17,14,16,16,12,12,14,19,19,18,19,25],
+    'Chihuahua': [38,40,33,33,35,30,30,26,22,23,19,20],
+    'Kleinpudel': [5,5,5,6,7,7,9,11,14,18,21,23],
+  },
+  'Kreis 11': {
+    'Chihuahua': [124,124,126,130,136,129,124,117,122,122,117,114],
+    'Yorkshire Terrier': [81,81,76,81,83,84,85,88,86,96,96,91],
+    'Labrador Retriever': [71,71,74,79,84,78,83,86,95,93,93,91],
+    'Malteser': [41,33,40,46,52,48,48,57,60,66,79,85],
+    'Französische Bulldogge': [27,26,36,42,59,65,69,70,80,80,75,76],
+    'Jack Russell Terrier': [66,63,62,49,41,43,42,46,47,53,54,57],
+    'Deutscher Zwergspitz/Pomeranian': [16,16,31,30,34,40,45,49,55,61,66,69],
+  },
+  'Kreis 12': {
+    'Chihuahua': [60,59,73,75,76,77,74,67,65,60,49,49],
+    'Malteser': [19,23,26,23,24,23,28,32,36,33,38,41],
+    'Labrador Retriever': [23,22,26,21,20,24,27,32,37,36,30,37],
+    'Yorkshire Terrier': [41,40,39,36,44,43,48,47,44,41,37,36],
+    'Deutscher Zwergspitz/Pomeranian': [3,5,14,16,20,26,23,26,23,26,24,27],
+    'Französische Bulldogge': [14,15,19,24,31,31,36,34,33,34,26,25],
+    'Jack Russell Terrier': [13,12,11,10,8,4,6,9,13,14,13,18],
+  },
+};
+
+const kreisColors = ['#0d47a1','#c62828','#2e7d32','#f57f17','#6a1b9a'];
+
+let kreisChart = null;
+
+function updateKreisChart(kreis) {
+  const data = kreisData[kreis];
+  if (!data) return;
+
+  const sorted = Object.entries(data)
+    .map(([rasse, werte]) => ({ rasse, werte, last: werte[11] }))
+    .sort((a, b) => b.last - a.last)
+    .slice(0, 5);
+
+  const datasets = sorted.map((r, i) => ({
+    label: r.rasse,
+    data: r.werte,
+    borderColor: kreisColors[i],
+    backgroundColor: 'transparent',
+    tension: 0.3,
+    pointRadius: 4,
+    pointHoverRadius: 7,
+    borderWidth: 2.5,
+  }));
+
+  if (kreisChart) kreisChart.destroy();
+  kreisChart = new Chart(document.getElementById('chartKreis').getContext('2d'), {
+    type: 'line',
+    data: { labels: jahre, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { usePointStyle: true, padding: 16, font: { size: 12 } },
+        },
+        tooltip: {
+          backgroundColor: '#1a1a2e',
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
+          padding: 12,
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} Hunde`,
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 13 } } },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 13 }, callback: v => v.toLocaleString('de-CH') },
+          grid: { color: 'rgba(0,0,0,0.06)' },
+        }
+      }
+    }
+  });
+}
+
+document.getElementById('kreisSelect').addEventListener('change', e => updateKreisChart(e.target.value));
+updateKreisChart('Kreis 7');
+
+const pyramidData = {
+  'Labrador Retriever': {m:[16,23,24,26,41,48,25,19,26,22,18,14,10,7,3,3,1,0,0],w:[15,21,21,33,33,45,19,24,21,23,14,14,14,9,12,3,1,0,0]},
+  'Chihuahua': {m:[9,19,17,22,17,16,12,14,21,10,15,16,13,15,5,10,5,3,0],w:[12,11,21,16,10,19,15,17,18,9,15,26,13,24,20,9,6,4,1]},
+  'Malteser': {m:[16,14,20,26,22,18,10,13,9,10,7,13,6,5,6,2,2,0,0],w:[16,21,13,18,20,27,16,8,11,9,9,15,8,6,4,4,0,0,0]},
+  'Französische Bulldogge': {m:[3,12,10,19,24,28,19,22,23,12,7,14,3,0,1,0,0,0,0],w:[8,8,12,9,12,24,11,14,11,11,3,8,8,5,2,1,0,0,0]},
+  'Jack Russell Terrier': {m:[5,10,15,10,20,12,9,12,15,10,7,6,6,3,15,5,2,0,1],w:[3,10,12,21,12,12,8,7,10,2,9,7,16,9,7,9,1,2,1]},
+  'Yorkshire Terrier': {m:[6,8,10,12,16,9,11,15,8,11,3,11,14,6,3,4,1,1,0],w:[3,4,14,14,13,22,14,15,9,11,13,8,14,5,5,2,2,0,1]},
+  'Dt. Zwergspitz/Pomeranian': {m:[3,9,17,20,16,28,10,18,12,9,5,9,0,4,0,0,0,0,0],w:[3,14,12,8,13,20,5,17,8,13,10,5,4,1,4,0,0,0,0]},
+  'Golden Retriever': {m:[10,18,18,18,18,10,10,11,7,7,6,5,5,2,3,0,0,0,0],w:[12,5,19,15,13,15,12,7,3,5,9,9,4,2,4,1,0,0,0]},
+  'Kleinpudel': {m:[9,16,16,18,17,9,5,2,5,9,5,5,6,1,3,0,1,0,0],w:[7,13,12,14,18,14,1,6,5,7,4,5,1,3,5,2,3,1,0]},
+  'Standarddachshund': {m:[4,7,10,7,11,21,10,8,4,5,7,3,0,4,2,1,3,3,1],w:[5,11,9,15,14,14,5,4,13,3,6,4,4,4,1,2,1,0,3]},
+  'Border Collie': {m:[5,5,9,10,18,15,6,5,6,8,7,0,2,0,1,0,1,0,0],w:[2,7,2,10,16,14,8,8,5,3,3,8,2,2,1,3,0,0,0]},
+  'Zwergpudel': {m:[11,18,19,8,11,9,6,2,1,3,4,1,4,0,2,0,2,0,0],w:[6,21,13,5,7,6,2,2,3,3,3,0,1,2,0,1,1,0,0]},
+  'Engl. Cocker Spaniel': {m:[9,8,11,9,10,11,2,6,6,5,1,4,2,2,0,1,0,0,0],w:[6,3,13,11,9,12,3,2,3,2,2,4,3,2,3,0,0,0,0]},
+  'Wasserhund d. Romagna': {m:[7,7,11,15,11,11,6,1,3,2,3,1,2,3,2,1,1,0,0],w:[5,7,5,5,10,6,8,3,1,4,0,2,2,2,2,3,0,0,0]},
+  'Mops': {m:[0,3,4,6,4,4,4,6,6,5,5,6,6,1,4,2,1,0,0],w:[3,1,5,2,7,10,5,7,10,6,4,3,5,3,2,2,0,1,2]},
+  'Shih Tzu': {m:[2,11,7,11,11,10,4,2,6,2,8,1,4,2,3,0,0,1,0],w:[5,2,7,5,8,2,3,3,6,2,4,4,3,2,0,1,0,0,0]},
+  'Austral. Schäferhund': {m:[7,7,5,8,6,10,7,9,5,2,2,1,1,2,0,0,0,0,0],w:[2,9,9,7,9,14,3,2,2,6,0,1,0,3,1,1,0,0,0]},
+  'Zwergdachshund': {m:[15,11,14,8,5,4,2,2,0,2,0,0,0,1,0,2,0,0,0],w:[10,8,9,6,10,5,6,4,4,2,3,1,0,2,0,1,0,0,0]},
+  'Deutscher Schäferhund': {m:[3,2,3,6,7,8,6,4,5,2,3,0,0,0,0,1,0,0,0],w:[1,4,8,3,15,12,9,6,6,4,3,7,2,3,1,1,0,0,0]},
+  'Beagle': {m:[4,0,3,6,6,11,9,3,2,6,5,5,5,2,1,2,0,0,0],w:[1,3,3,2,11,4,1,8,10,5,2,5,2,1,2,0,1,0,0]},
+  'Havaneser': {m:[2,3,4,11,9,10,3,3,2,2,3,3,3,2,2,2,0,0,0],w:[2,3,2,5,7,10,3,8,4,3,5,5,3,3,1,0,1,0,0]},
+  'Toypudel': {m:[14,9,9,9,5,3,3,1,1,1,2,0,0,0,1,1,0,0,0],w:[8,15,13,5,7,6,0,2,0,0,3,0,1,1,0,0,1,0,0]},
+  'Cavalier King Charles': {m:[4,6,6,4,3,7,1,4,2,0,2,1,0,2,0,0,0,0,0],w:[6,7,4,3,8,5,3,0,9,1,1,2,1,1,0,0,0,0,0]},
+  'Deutscher Kleinspitz': {m:[3,6,6,11,10,9,3,3,0,1,0,2,2,1,0,0,0,1,0],w:[1,0,3,7,1,7,3,4,1,1,1,1,1,0,0,1,0,0,0]},
+  'Bolonka Zwetna': {m:[0,0,0,0,1,0,2,11,5,3,3,9,2,2,2,4,1,1,0],w:[0,0,0,1,0,1,0,4,3,7,8,5,3,4,6,1,0,0,0]},
+};
+
+const pyramidLabels = ['0','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18+'];
+
+function buildPyramids() {
+  const grid = document.getElementById('pyramidGrid');
+  const entries = Object.entries(pyramidData);
+
+  for (const [rasse, d] of entries) {
+    const cell = document.createElement('div');
+    cell.className = 'pyramid-cell';
+    cell.innerHTML = `<h3 title="${rasse}">${rasse}</h3><canvas></canvas>`;
+    grid.appendChild(cell);
+
+    const canvas = cell.querySelector('canvas');
+    const maxVal = Math.max(...d.m, ...d.w);
+    const mNeg = d.m.map(v => -v);
+
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: pyramidLabels,
+        datasets: [
+          {
+            label: 'Männlich',
+            data: mNeg,
+            backgroundColor: 'rgba(21,101,192,0.7)',
+            borderRadius: 2,
+          },
+          {
+            label: 'Weiblich',
+            data: d.w,
+            backgroundColor: 'rgba(198,40,40,0.7)',
+            borderRadius: 2,
+          },
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const v = Math.abs(ctx.parsed.x);
+                return `${ctx.dataset.label}: ${v}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            min: -maxVal,
+            max: maxVal,
+            ticks: { display: false },
+            grid: { display: false },
+          },
+          y: {
+            stacked: true,
+            reverse: true,
+            ticks: { font: { size: 8 }, color: '#888' },
+            grid: { display: false },
+          }
+        }
+      }
+    });
+  }
+}
+
+buildPyramids();
+
+const wikiMap = {
+  'Labrador Retriever': 'Labrador_Retriever',
+  'Malteser': 'Maltese_dog',
+  'Französische Bulldogge': 'French_Bulldog',
+  'Jack Russell Terrier': 'Jack_Russell_Terrier',
+  'Yorkshire Terrier': 'Yorkshire_Terrier',
+  'Deutscher Zwergspitz/Pomeranian': 'Pomeranian_dog',
+  'Golden Retriever': 'Golden_Retriever',
+  'Standarddachshund': 'Dachshund',
+  'Border Collie': 'Border_Collie',
+  'Englischer Cocker Spaniel': 'English_Cocker_Spaniel',
+  'Wasserhund der Romagna': 'Lagotto_Romagnolo',
+  'Mops': 'Pug',
+  'Shih Tzu': 'Shih_Tzu',
+  'Australischer Schäferhund': 'Australian_Shepherd',
+  'Zwergdachshund': 'Dachshund',
+  'Deutscher Schäferhund': 'German_Shepherd',
+  'Beagle': 'Beagle',
+  'Havaneser': 'Havanese_dog',
+  'Cavalier King Charles Spaniel': 'Cavalier_King_Charles_Spaniel',
+  'Deutscher Kleinspitz': 'German_Spitz',
+  'Bolonka Zwetna': 'Bolonka',
+  'Shiba': 'Shiba_Inu',
+  'Zwergschnauzer': 'Miniature_Schnauzer',
+  'Zwergpinscher': 'Miniature_Pinscher',
+  'Siberian Husky': 'Siberian_Husky',
+  'Appenzeller Sennenhund': 'Appenzeller_Sennenhund',
+  'Grosspudel': 'Poodle',
+  'Parson Russell Terrier': 'Parson_Russell_Terrier',
+  'Berner Sennenhund': 'Bernese_Mountain_Dog',
+  'Bulldog': 'Bulldog',
+  'West Highland White Terrier': 'West_Highland_White_Terrier',
+  'Boston Terrier': 'Boston_Terrier',
+  'Kurzhaariger Ungarischer Vorstehhund': 'Vizsla',
+  'Flat Coated Retriever': 'Flat-coated_Retriever',
+  'Rhodesian Ridgeback': 'Rhodesian_Ridgeback',
+  'Bichon Frise': 'Bichon_Frise',
+};
+
+const wikiLinks = {
+  'Labrador Retriever':              'https://de.wikipedia.org/wiki/Labrador_Retriever',
+  'Chihuahua':                       'https://de.wikipedia.org/wiki/Chihuahua_(Hunderasse)',
+  'Malteser':                        'https://de.wikipedia.org/wiki/Malteser_(Hunderasse)',
+  'Französische Bulldogge':          'https://de.wikipedia.org/wiki/Franz%C3%B6sische_Bulldogge',
+  'Jack Russell Terrier':            'https://de.wikipedia.org/wiki/Jack_Russell_Terrier',
+  'Yorkshire Terrier':               'https://de.wikipedia.org/wiki/Yorkshire_Terrier',
+  'Deutscher Zwergspitz/Pomeranian': 'https://de.wikipedia.org/wiki/Zwergspitz',
+  'Golden Retriever':                'https://de.wikipedia.org/wiki/Golden_Retriever',
+  'Kleinpudel':                      'https://de.wikipedia.org/wiki/Pudel',
+  'Standarddachshund':               'https://de.wikipedia.org/wiki/Dackel',
+  'Border Collie':                   'https://de.wikipedia.org/wiki/Border_Collie',
+  'Zwergpudel':                      'https://de.wikipedia.org/wiki/Pudel',
+  'Englischer Cocker Spaniel':       'https://de.wikipedia.org/wiki/Englischer_Cocker_Spaniel',
+  'Wasserhund der Romagna':          'https://de.wikipedia.org/wiki/Lagotto_Romagnolo',
+  'Mops':                            'https://de.wikipedia.org/wiki/Mops_(Hunderasse)',
+  'Shih Tzu':                        'https://de.wikipedia.org/wiki/Shih_Tzu',
+  'Australischer Schäferhund':       'https://de.wikipedia.org/wiki/Australian_Shepherd',
+  'Zwergdachshund':                  'https://de.wikipedia.org/wiki/Dackel',
+  'Deutscher Schäferhund':           'https://de.wikipedia.org/wiki/Deutscher_Sch%C3%A4ferhund',
+  'Beagle':                          'https://de.wikipedia.org/wiki/Beagle',
+  'Havaneser':                       'https://de.wikipedia.org/wiki/Havaneser',
+  'Toypudel':                        'https://de.wikipedia.org/wiki/Pudel',
+  'Cavalier King Charles Spaniel':   'https://de.wikipedia.org/wiki/Cavalier_King_Charles_Spaniel',
+  'Deutscher Kleinspitz':            'https://de.wikipedia.org/wiki/Deutscher_Spitz',
+  'Bolonka Zwetna':                  'https://de.wikipedia.org/wiki/Bolonka_Zwetna',
+  'Shiba':                           'https://de.wikipedia.org/wiki/Shiba_Inu',
+  'Zwergschnauzer':                  'https://de.wikipedia.org/wiki/Zwergschnauzer',
+  'Zwergpinscher':                   'https://de.wikipedia.org/wiki/Zwergpinscher',
+  'Siberian Husky':                  'https://de.wikipedia.org/wiki/Siberian_Husky',
+  'Appenzeller Sennenhund':          'https://de.wikipedia.org/wiki/Appenzeller_Sennenhund',
+  'Grosspudel':                      'https://de.wikipedia.org/wiki/Pudel',
+  'Parson Russell Terrier':          'https://de.wikipedia.org/wiki/Parson_Russell_Terrier',
+  'Berner Sennenhund':               'https://de.wikipedia.org/wiki/Berner_Sennenhund',
+  'Bulldog':                         'https://de.wikipedia.org/wiki/Englische_Bulldogge',
+  'West Highland White Terrier':     'https://de.wikipedia.org/wiki/West_Highland_White_Terrier',
+  'Boston Terrier':                  'https://de.wikipedia.org/wiki/Boston_Terrier',
+  'Kurzhaariger Ungarischer Vorstehhund': 'https://de.wikipedia.org/wiki/Magyar_Vizsla',
+  'Flat Coated Retriever':           'https://de.wikipedia.org/wiki/Flat_Coated_Retriever',
+  'Rhodesian Ridgeback':             'https://de.wikipedia.org/wiki/Rhodesian_Ridgeback',
+  'Bichon Frise':                    'https://de.wikipedia.org/wiki/Bichon_Fris%C3%A9',
+};
+
+const rassenBilder = {};
+
+const wikiTitelZuRasse = {};
+for (const [rasse, titel] of Object.entries(wikiMap)) {
+  const key = titel.replace(/_/g, ' ');
+  if (!wikiTitelZuRasse[key]) wikiTitelZuRasse[key] = [];
+  wikiTitelZuRasse[key].push(rasse);
+}
+
+async function ladeRassenBilder() {
+  const titles = [...new Set(Object.values(wikiMap))];
+  const batches = [];
+  for (let i = 0; i < titles.length; i += 10) batches.push(titles.slice(i, i + 10));
+
+  for (const batch of batches) {
+    try {
+      const params = new URLSearchParams({
+        action: 'query', titles: batch.join('|'), prop: 'pageimages',
+        pithumbsize: '400', format: 'json', origin: '*',
+      });
+      const res = await fetch('https://en.wikipedia.org/w/api.php?' + params);
+      const json = await res.json();
+      for (const p of Object.values(json.query.pages)) {
+        if (!p.thumbnail) continue;
+        const key = p.title.replace(/_/g, ' ');
+        const rassenNamen = wikiTitelZuRasse[key];
+        if (rassenNamen) {
+          for (const r of rassenNamen) rassenBilder[r] = p.thumbnail.source;
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  try {
+    const commonsQueries = [
+      { rasse: 'Chihuahua', search: 'Chihuahua dog' },
+      { rasse: 'Kleinpudel', search: 'Medium Poodle dog' },
+      { rasse: 'Zwergpudel', search: 'Miniature Poodle dog' },
+      { rasse: 'Toypudel', search: 'Toy Poodle dog' },
+      { rasse: 'Grosspudel', search: 'Standard Poodle dog' },
+    ];
+    for (const q of commonsQueries) {
+      if (rassenBilder[q.rasse]) continue;
+      const params = new URLSearchParams({
+        action: 'query', generator: 'search', gsrsearch: q.search,
+        gsrlimit: '1', gsrnamespace: '6', prop: 'imageinfo',
+        iiprop: 'url', iiurlwidth: '400', format: 'json', origin: '*',
+      });
+      const res = await fetch('https://commons.wikimedia.org/w/api.php?' + params);
+      const json = await res.json();
+      if (json.query && json.query.pages) {
+        for (const p of Object.values(json.query.pages)) {
+          if (p.imageinfo && p.imageinfo[0] && p.imageinfo[0].thumburl) {
+            rassenBilder[q.rasse] = p.imageinfo[0].thumburl;
+            break;
+          }
+        }
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  renderRassen(document.getElementById('rassenFilter').value);
+}
+
+function getRasseBild(rasse) {
+  return rassenBilder[rasse] || null;
+}
+
+let rassenSortCol = 'rang';
+let rassenSortAsc = true;
+
+function renderRassen(filter = '') {
+  const tbody = document.getElementById('rassenBody');
+  const lower = filter.toLowerCase();
+  let data = rassen.map((r, i) => ({ ...r, rang: i + 1, diff: r.a25 - r.a24 }));
+  if (lower) data = data.filter(r => r.rasse.toLowerCase().includes(lower));
+
+  const col = rassenSortCol;
+  data.sort((a, b) => {
+    let va = col === 'rasse' ? a.rasse : (col === 'anzahl2025' ? a.a25 : col === 'anzahl2024' ? a.a24 : col === 'diff' ? a.diff : a.rang);
+    let vb = col === 'rasse' ? b.rasse : (col === 'anzahl2025' ? b.a25 : col === 'anzahl2024' ? b.a24 : col === 'diff' ? b.diff : b.rang);
+    if (typeof va === 'string') return rassenSortAsc ? va.localeCompare(vb, 'de') : vb.localeCompare(va, 'de');
+    return rassenSortAsc ? va - vb : vb - va;
+  });
+
+  tbody.innerHTML = data.map(r => {
+    const cls = r.diff > 0 ? 'pos' : r.diff < 0 ? 'neg' : 'zero';
+    const sign = r.diff > 0 ? '+' : '';
+    return `<tr>
+      <td class="num">${r.rang}</td>
+      <td><span class="rasse-name" data-rasse="${r.rasse}"><a href="${wikiLinks[r.rasse] || '#'}" target="_blank" rel="noopener">${r.rasse}</a></span></td>
+      <td class="num">${r.a25.toLocaleString('de-CH')}</td>
+      <td class="num">${r.a24.toLocaleString('de-CH')}</td>
+      <td class="num"><span class="badge ${cls}">${sign}${r.diff}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+document.querySelectorAll('#rassenTabelle th').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (rassenSortCol === col) { rassenSortAsc = !rassenSortAsc; }
+    else { rassenSortCol = col; rassenSortAsc = col === 'rasse'; }
+    document.querySelectorAll('#rassenTabelle th').forEach(h => h.classList.remove('sorted'));
+    th.classList.add('sorted');
+    th.querySelector('.sort-arrow').textContent = rassenSortAsc ? '▲' : '▼';
+    renderRassen(document.getElementById('rassenFilter').value);
+  });
+});
+
+document.getElementById('rassenFilter').addEventListener('input', e => renderRassen(e.target.value));
+
+const tooltip = document.getElementById('rasseTooltip');
+const tooltipImg = document.getElementById('rasseTooltipImg');
+
+document.getElementById('rassenBody').addEventListener('mouseover', e => {
+  const span = e.target.closest('.rasse-name');
+  if (!span) return;
+  const src = getRasseBild(span.dataset.rasse);
+  if (!src) return;
+  tooltipImg.src = src;
+  tooltipImg.alt = span.dataset.rasse;
+  tooltip.style.display = 'block';
+});
+
+document.getElementById('rassenBody').addEventListener('mousemove', e => {
+  if (tooltip.style.display !== 'block') return;
+  const x = e.clientX + 20;
+  const y = e.clientY - 100;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = Math.max(10, y) + 'px';
+});
+
+document.getElementById('rassenBody').addEventListener('mouseout', e => {
+  const span = e.target.closest('.rasse-name');
+  if (!span) return;
+  tooltip.style.display = 'none';
+});
+
+renderRassen();
+ladeRassenBilder();
+</script>
+</body>
+</html>
