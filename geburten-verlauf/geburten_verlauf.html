@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geburten pro Tag – Stadt Zürich</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5"></script>
+    <style>
+        :root {
+            --ssz-text: #737373;
+            --ssz-text-dark: #020304;
+            --ssz-grid: #D6D6D6;
+            --ssz-bg: #ffffff;
+            --ssz-bg-page: #FAFAFA;
+            --ssz-font: 'Helvetica Neue', 'HelveticaNeueLTPro', Arial, sans-serif;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--ssz-font);
+            background: var(--ssz-bg-page);
+            color: var(--ssz-text);
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 1.4rem; color: var(--ssz-text-dark); margin-bottom: 0.2rem; }
+        .subtitle { color: var(--ssz-text); margin-bottom: 1.5rem; font-size: 0.9rem; }
+        .card {
+            background: var(--ssz-bg);
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h2 { font-size: 1rem; font-weight: 700; color: var(--ssz-text-dark); margin-bottom: 1rem; }
+        .chart-tall { height: 350px; }
+        .chart-medium { height: 300px; }
+        canvas { width: 100% !important; display: block; }
+        #status { color: var(--ssz-text); margin-bottom: 1rem; font-size: 0.85rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { text-align: left; padding: 0.4rem 0.75rem; border-bottom: 1px solid #EAEAEA; }
+        th { color: var(--ssz-text); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.02em; cursor: pointer; user-select: none; white-space: nowrap; }
+        th:hover { color: var(--ssz-text-dark); }
+        th .sort-arrow { font-size: 0.65rem; margin-left: 0.3em; opacity: 0.4; }
+        th.sorted .sort-arrow { opacity: 1; }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        th.num { text-align: right; }
+        .source { margin-top: 1.5rem; font-size: 0.75rem; color: var(--ssz-text); }
+        .source a { color: var(--ssz-text); }
+        .kpi-row { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .kpi {
+            background: var(--ssz-bg);
+            border-radius: 4px;
+            padding: 1rem 1.5rem;
+            flex: 1;
+            min-width: 150px;
+            border-left: 4px solid #3431DE;
+        }
+        .kpi .value { font-size: 1.7rem; font-weight: 700; color: var(--ssz-text-dark); }
+        .kpi .label { font-size: 0.78rem; color: var(--ssz-text); margin-top: 0.2rem; }
+    </style>
+</head>
+<body>
+    <h1>Geburten pro Tag in der Stadt Zürich</h1>
+    <p class="subtitle">Seit dem letzten Muttertag (11. Mai 2025)</p>
+    <div id="status">Daten werden geladen...</div>
+
+    <div class="kpi-row" id="kpis" style="display:none;">
+        <div class="kpi"><div class="value" id="kpi-total">–</div><div class="label">Geburten total</div></div>
+        <div class="kpi"><div class="value" id="kpi-tage">–</div><div class="label">Tage</div></div>
+        <div class="kpi"><div class="value" id="kpi-avg">–</div><div class="label">Ø pro Tag</div></div>
+        <div class="kpi"><div class="value" id="kpi-max">–</div><div class="label">Maximum</div></div>
+    </div>
+
+    <div class="card">
+        <h2>Geburten pro Tag</h2>
+        <div class="chart-tall"><canvas id="chartTotal"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>Nach Geschlecht</h2>
+            <div class="chart-medium"><canvas id="chartSex"></canvas></div>
+        </div>
+        <div class="card">
+            <h2>Nach Herkunft</h2>
+            <div class="chart-medium"><canvas id="chartHerkunft"></canvas></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Nach Stadtkreis</h2>
+        <div class="chart-medium"><canvas id="chartKreis"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>Top 10 Tage</h2>
+            <table id="top-table">
+                <thead><tr><th>Rang</th><th>Datum</th><th>Wochentag</th><th class="num">Geburten</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h2>Geburten nach Stadtkreis</h2>
+            <table id="kreis-table">
+                <thead><tr><th>Stadtkreis</th><th class="num">Total</th><th class="num">Mädchen</th><th class="num">Knaben</th><th class="num">CH</th><th class="num">Ausland</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <p class="source">Quelle: <a href="https://data.stadt-zuerich.ch/dataset/bev_tag_geburten_quartier_geschl_ag_herkunft_od4031">Open Data Zürich – OD4031</a> (CC0)</p>
+
+<script>
+const RESOURCE_ID = '38907592-5c65-4ff2-bbaf-762b4569edde';
+const WOCHENTAGE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const START_DT = new Date(2025, 4, 11);
+
+// zuericolors
+const ZC = {
+    qual6:  ['#3431DE','#DB247D','#1F9E31','#FBB900','#23C3F1','#FF720C'],
+    qual12: ['#3431DE','#0A8DF6','#23C3F1','#7B4FB7','#DB247D','#FB737E','#007C78','#1F9E31','#99C32E','#9A5B01','#FF720C','#FBB900'],
+    gender: { weiblich: '#349894', 'männlich': '#FFD736' },
+    gry:    { light: '#FAFAFA', pale: '#EAEAEA', gry: '#D6D6D6', dim: '#B8B8B8', med: '#7C7C7C', deep: '#545454' },
+    text:   '#737373',
+    grid:   '#D6D6D6'
+};
+
+// Chart.js SSZ defaults (web mode)
+Chart.defaults.font.family = "'Helvetica Neue', 'HelveticaNeueLTPro', Arial, sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = ZC.text;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.pointStyleWidth = 12;
+
+function sszScales(yTitle, stacked) {
+    return {
+        x: {
+            type: 'time',
+            time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
+            grid: { display: false },
+            border: { color: ZC.grid },
+            ticks: { color: ZC.text, font: { size: 11 } }
+        },
+        y: {
+            beginAtZero: true,
+            stacked: !!stacked,
+            title: { display: !!yTitle, text: yTitle || '', color: ZC.text, font: { size: 11 } },
+            grid: { color: ZC.grid, lineWidth: 0.5 },
+            border: { display: false },
+            ticks: { color: ZC.text, font: { size: 11 } }
+        }
+    };
+}
+
+function sszTooltip() {
+    return {
+        backgroundColor: '#fff',
+        titleColor: '#020304',
+        bodyColor: ZC.text,
+        borderColor: ZC.grid,
+        borderWidth: 1,
+        cornerRadius: 3,
+        padding: 10,
+        titleFont: { weight: '700' },
+        callbacks: {
+            title: items => {
+                const dt = new Date(items[0].parsed.x);
+                return `${WOCHENTAGE[dt.getDay()]}, ${formatDate(dt)}`;
+            }
+        }
+    };
+}
+
+function sszOpts(yTitle, stacked) {
+    return {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: sszScales(yTitle, stacked),
+        plugins: {
+            tooltip: sszTooltip(),
+            legend: { position: 'bottom', labels: { padding: 16, color: ZC.text } }
+        }
+    };
+}
+
+async function fetchRawData() {
+    const sql = `
+        SELECT "GueltigAbDatJahr" AS j, "GueltigAbDatMM" AS m, "GueltigAbDatDD" AS d,
+               "SexLang" AS sex, "HerkunftLang" AS herkunft, "KreisLang" AS kreis,
+               SUM(CAST("AnzGebuWir" AS integer)) AS n
+        FROM "${RESOURCE_ID}"
+        WHERE CAST("GueltigAbDatJahr" AS integer) >= 2025
+        GROUP BY "GueltigAbDatJahr", "GueltigAbDatMM", "GueltigAbDatDD", "SexLang", "HerkunftLang", "KreisLang"
+    `;
+    const url = `https://data.stadt-zuerich.ch/api/3/action/datastore_search_sql?sql=${encodeURIComponent(sql)}`;
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        if (!json.success) throw new Error('API error');
+        return json.result.records.map(r => ({
+            date: new Date(+r.j, +r.m - 1, +r.d),
+            sex: r.sex, herkunft: r.herkunft, kreis: r.kreis, n: +r.n
+        }));
+    } catch (e) {
+        document.getElementById('status').textContent = `SQL-API fehlgeschlagen (${e.message}), versuche CSV...`;
+        return fetchViaCSV();
+    }
+}
+
+async function fetchViaCSV() {
+    const csvUrl = 'https://data.stadt-zuerich.ch/dataset/bev_tag_geburten_quartier_geschl_ag_herkunft_od4031/download/BEV403OD4031.csv';
+    const resp = await fetch(csvUrl);
+    if (!resp.ok) throw new Error(`CSV HTTP ${resp.status}`);
+    const text = await resp.text();
+    return new Promise((resolve, reject) => {
+        Papa.parse(text, {
+            header: true, skipEmptyLines: true,
+            complete: results => {
+                const rows = [];
+                results.data.forEach(r => {
+                    if (+r.GueltigAbDatJahr < 2025) return;
+                    rows.push({
+                        date: new Date(+r.GueltigAbDatJahr, +r.GueltigAbDatMM - 1, +r.GueltigAbDatDD),
+                        sex: r.SexLang, herkunft: r.HerkunftLang, kreis: r.KreisLang,
+                        n: +r.AnzGebuWir || 0
+                    });
+                });
+                resolve(rows);
+            },
+            error: reject
+        });
+    });
+}
+
+function dailySum(rows) {
+    const map = {};
+    rows.forEach(r => { const t = r.date.getTime(); map[t] = (map[t] || 0) + r.n; });
+    return Object.entries(map).map(([t, n]) => ({ date: new Date(+t), count: n })).sort((a, b) => a.date - b.date);
+}
+
+function dailySumByDim(rows, dimFn) {
+    const map = {};
+    rows.forEach(r => {
+        const t = r.date.getTime();
+        const dim = dimFn(r);
+        if (!map[t]) map[t] = {};
+        map[t][dim] = (map[t][dim] || 0) + r.n;
+    });
+    const dates = Object.keys(map).map(Number).sort((a, b) => a - b);
+    const dims = [...new Set(rows.map(dimFn))].sort();
+    return { dates: dates.map(t => new Date(t)), dims, series: dims.map(dim => dates.map(t => map[t][dim] || 0)) };
+}
+
+function formatDate(dt) {
+    return dt.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function fmt(n) { return n.toLocaleString('de-CH'); }
+
+function makeSortable(tableId) {
+    const table = document.getElementById(tableId);
+    const headers = table.querySelectorAll('th');
+    const tbody = table.querySelector('tbody');
+    let sortCol = -1, sortAsc = true;
+
+    headers.forEach(th => {
+        const arrow = document.createElement('span');
+        arrow.className = 'sort-arrow';
+        arrow.textContent = '▲';
+        th.appendChild(arrow);
+    });
+
+    headers.forEach((th, colIdx) => {
+        th.addEventListener('click', () => {
+            if (sortCol === colIdx) { sortAsc = !sortAsc; } else { sortCol = colIdx; sortAsc = true; }
+
+            headers.forEach(h => h.classList.remove('sorted'));
+            th.classList.add('sorted');
+            th.querySelector('.sort-arrow').textContent = sortAsc ? '▲' : '▼';
+
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const totalRow = rows.find(r => r.style.fontWeight === '700');
+            const dataRows = rows.filter(r => r !== totalRow);
+
+            dataRows.sort((a, b) => {
+                const aCell = a.cells[colIdx].textContent.replace(/[^\d.\-]/g, '');
+                const bCell = b.cells[colIdx].textContent.replace(/[^\d.\-]/g, '');
+                const aNum = parseFloat(aCell);
+                const bNum = parseFloat(bCell);
+                const isNum = !isNaN(aNum) && !isNaN(bNum);
+                let cmp;
+                if (isNum) { cmp = aNum - bNum; }
+                else { cmp = a.cells[colIdx].textContent.localeCompare(b.cells[colIdx].textContent, 'de'); }
+                return sortAsc ? cmp : -cmp;
+            });
+
+            dataRows.forEach(r => tbody.appendChild(r));
+            if (totalRow) tbody.appendChild(totalRow);
+        });
+    });
+}
+
+async function main() {
+    try {
+        const raw = await fetchRawData();
+        const data = raw.filter(r => r.date >= START_DT);
+
+        if (data.length === 0) {
+            document.getElementById('status').textContent = 'Keine Daten gefunden.';
+            return;
+        }
+
+        const daily = dailySum(data);
+        const total = daily.reduce((s, d) => s + d.count, 0);
+        const avg = total / daily.length;
+        const maxDay = daily.reduce((a, b) => b.count > a.count ? b : a);
+
+        document.getElementById('kpis').style.display = 'flex';
+        document.getElementById('kpi-total').textContent = fmt(total);
+        document.getElementById('kpi-tage').textContent = daily.length;
+        document.getElementById('kpi-avg').textContent = avg.toFixed(1);
+        document.getElementById('kpi-max').textContent = `${maxDay.count} (${formatDate(maxDay.date)})`;
+        document.getElementById('status').textContent = '';
+
+        // === Chart 1: Total ===
+        const top10 = [...daily].sort((a, b) => b.count - a.count).slice(0, 10);
+        const topDates = new Set(top10.map(d => d.date.getTime()));
+
+        new Chart(document.getElementById('chartTotal'), {
+            type: 'line',
+            data: {
+                labels: daily.map(d => d.date),
+                datasets: [{
+                    label: 'Geburten pro Tag',
+                    data: daily.map(d => d.count),
+                    borderColor: ZC.qual6[0],
+                    backgroundColor: ZC.qual6[0] + '18',
+                    borderWidth: 1.5, fill: true, tension: 0.3,
+                    pointBackgroundColor: 'transparent',
+                    pointBorderColor: daily.map(d => topDates.has(d.date.getTime()) ? '#DB247D' : ZC.qual6[0]),
+                    pointRadius: daily.map(d => topDates.has(d.date.getTime()) ? 6 : 1),
+                    pointHoverRadius: 5
+                }, {
+                    label: `Durchschnitt (${avg.toFixed(1)})`,
+                    data: daily.map(() => avg),
+                    borderColor: ZC.gry.med,
+                    borderWidth: 1.5,
+                    borderDash: [6, 4],
+                    pointRadius: 0, fill: false
+                }]
+            },
+            options: sszOpts('Anzahl Geburten', false)
+        });
+
+        // === Chart 2: Geschlecht ===
+        const bySex = dailySumByDim(data, r => r.sex);
+        const sexOrder = ['weiblich', 'männlich'];
+        const sexLabels = { weiblich: 'Weiblich', 'männlich': 'Männlich' };
+
+        new Chart(document.getElementById('chartSex'), {
+            type: 'line',
+            data: {
+                labels: bySex.dates,
+                datasets: sexOrder.filter(s => bySex.dims.includes(s)).map(dim => ({
+                    label: sexLabels[dim] || dim,
+                    data: bySex.series[bySex.dims.indexOf(dim)],
+                    borderColor: ZC.gender[dim],
+                    backgroundColor: ZC.gender[dim] + '20',
+                    borderWidth: 1.5, fill: true, tension: 0.3,
+                    pointRadius: 0.5, pointHoverRadius: 4
+                }))
+            },
+            options: sszOpts('Anzahl', true)
+        });
+
+        // === Chart 3: Herkunft ===
+        const byHerkunft = dailySumByDim(data, r => r.herkunft);
+        const herkunftColors = { 'Schweizer*in': '#3431DE', 'Ausländer*in': '#FF720C' };
+        const herkunftOrder = ['Schweizer*in', 'Ausländer*in'];
+
+        new Chart(document.getElementById('chartHerkunft'), {
+            type: 'line',
+            data: {
+                labels: byHerkunft.dates,
+                datasets: herkunftOrder.filter(h => byHerkunft.dims.includes(h)).map(dim => ({
+                    label: dim,
+                    data: byHerkunft.series[byHerkunft.dims.indexOf(dim)],
+                    borderColor: herkunftColors[dim],
+                    backgroundColor: herkunftColors[dim] + '20',
+                    borderWidth: 1.5, fill: true, tension: 0.3,
+                    pointRadius: 0.5, pointHoverRadius: 4
+                }))
+            },
+            options: sszOpts('Anzahl', true)
+        });
+
+        // === Chart 4: Stadtkreis ===
+        const kreisAgg = {};
+        data.forEach(r => { kreisAgg[r.kreis] = (kreisAgg[r.kreis] || 0) + r.n; });
+        const kreise = Object.entries(kreisAgg).sort((a, b) => {
+            const na = parseInt(a[0].replace(/\D/g, '')) || 99;
+            const nb = parseInt(b[0].replace(/\D/g, '')) || 99;
+            return na - nb;
+        });
+
+        new Chart(document.getElementById('chartKreis'), {
+            type: 'bar',
+            data: {
+                labels: kreise.map(k => k[0]),
+                datasets: [{
+                    label: 'Geburten total',
+                    data: kreise.map(k => k[1]),
+                    backgroundColor: ZC.qual12.slice(0, kreise.length),
+                    borderWidth: 0, borderRadius: 2
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#fff', titleColor: '#020304', bodyColor: ZC.text,
+                        borderColor: ZC.grid, borderWidth: 1, cornerRadius: 3, padding: 10
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        border: { color: ZC.grid },
+                        ticks: { color: ZC.text, font: { size: 11 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Anzahl Geburten', color: ZC.text, font: { size: 11 } },
+                        grid: { color: ZC.grid, lineWidth: 0.5 },
+                        border: { display: false },
+                        ticks: { color: ZC.text, font: { size: 11 } }
+                    }
+                }
+            }
+        });
+
+        // === Tabelle: Top 10 ===
+        const tbody = document.querySelector('#top-table tbody');
+        top10.forEach((d, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${i + 1}</td><td>${formatDate(d.date)}</td><td>${WOCHENTAGE[d.date.getDay()]}</td><td class="num"><strong>${d.count}</strong></td>`;
+            tbody.appendChild(tr);
+        });
+
+        // === Tabelle: Stadtkreis ===
+        const kreisDetail = {};
+        data.forEach(r => {
+            if (!kreisDetail[r.kreis]) kreisDetail[r.kreis] = { total: 0, w: 0, m: 0, ch: 0, aus: 0 };
+            const k = kreisDetail[r.kreis];
+            k.total += r.n;
+            if (r.sex === 'weiblich') k.w += r.n; else k.m += r.n;
+            if (r.herkunft === 'Schweizer*in') k.ch += r.n; else k.aus += r.n;
+        });
+        const kreisTbody = document.querySelector('#kreis-table tbody');
+        kreise.forEach(([name]) => {
+            const k = kreisDetail[name];
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${name}</td><td class="num"><strong>${fmt(k.total)}</strong></td><td class="num">${fmt(k.w)}</td><td class="num">${fmt(k.m)}</td><td class="num">${fmt(k.ch)}</td><td class="num">${fmt(k.aus)}</td>`;
+            kreisTbody.appendChild(tr);
+        });
+        const totRow = document.createElement('tr');
+        totRow.style.fontWeight = '700';
+        totRow.style.borderTop = '2px solid ' + ZC.gry.dim;
+        const t_ = Object.values(kreisDetail).reduce((a, b) => ({ total: a.total+b.total, w: a.w+b.w, m: a.m+b.m, ch: a.ch+b.ch, aus: a.aus+b.aus }));
+        totRow.innerHTML = `<td>Total</td><td class="num">${fmt(t_.total)}</td><td class="num">${fmt(t_.w)}</td><td class="num">${fmt(t_.m)}</td><td class="num">${fmt(t_.ch)}</td><td class="num">${fmt(t_.aus)}</td>`;
+        kreisTbody.appendChild(totRow);
+
+        makeSortable('top-table');
+        makeSortable('kreis-table');
+
+    } catch (e) {
+        document.getElementById('status').textContent = `Fehler: ${e.message}`;
+        console.error(e);
+    }
+}
+
+main();
+</script>
+</body>
+</html>

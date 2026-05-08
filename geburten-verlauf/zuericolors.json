@@ -1,0 +1,86 @@
+{
+  "_source": "https://github.com/StatistikStadtZuerich/zuericolors",
+  "_note": "Farbpaletten der Statistik Stadt Zürich, extrahiert aus zuericolors/zueritheme (Web-Modus)",
+
+  "qualitative": {
+    "qual6": ["#3431DE", "#DB247D", "#1F9E31", "#FBB900", "#23C3F1", "#FF720C"],
+    "qual6a": ["#3431DE", "#0A8DF6", "#23C3F1", "#7B4FB7", "#DB247D", "#FB737E"],
+    "qual6b": ["#007C78", "#1F9E31", "#99C32E", "#9A5B01", "#FF720C", "#FBB900"],
+    "qual12": ["#3431DE", "#0A8DF6", "#23C3F1", "#7B4FB7", "#DB247D", "#FB737E", "#007C78", "#1F9E31", "#99C32E", "#9A5B01", "#FF720C", "#FBB900"],
+    "qual12br": ["#5D4BFE", "#4AA9FF", "#55FFFF", "#986AD5", "#FC4C99", "#FF919A", "#349894", "#44B14A", "#B7E14E", "#B97624", "#FF7231", "#FFD736"],
+    "qual12da": ["#0017BF", "#0072D7", "#00A5D2", "#5E359A", "#BA0062", "#DA5563", "#00615D", "#00770F", "#7BA600", "#7B4100", "#DC5500", "#DA9C00"]
+  },
+
+  "sequential": {
+    "seq9blu": ["#CADEFF", "#AEC2FF", "#93A6FF", "#778AFF", "#5B6EFF", "#4D59E2", "#3E44C5", "#302FA7", "#211A8A"],
+    "seq9red": ["#FED2EE", "#FEAED6", "#F589BE", "#F165A5", "#ED408D", "#D1307B", "#B52069", "#991056", "#7D0044"],
+    "seq9grn": ["#CFEED8", "#A8E0B3", "#81D18F", "#5BC36A", "#34B446", "#2A9A3C", "#208032", "#166529", "#0C4B1F"],
+    "seq9brn": ["#FCDDBB", "#F7BD8C", "#F39D5E", "#EE7D2F", "#EA5D00", "#C84E00", "#A53E00", "#832F00", "#611F00"]
+  },
+
+  "divergent": {
+    "div9ntr": ["#782600", "#CC4309", "#FF720C", "#FFBC88", "#E4E0DF", "#AECBFF", "#6B8EFF", "#3B51FF", "#2F2ABB"],
+    "div9val": ["#A30059", "#DB247D", "#FF579E", "#FFA8D0", "#E4E0DF", "#A8DBB1", "#55BC5D", "#1F9E31", "#10652A"]
+  },
+
+  "grey": {
+    "seq6gry": ["#FAFAFA", "#EAEAEA", "#D6D6D6", "#B8B8B8", "#7C7C7C", "#545454"],
+    "names": {
+      "LightGry": "#FAFAFA",
+      "PaleGry": "#EAEAEA",
+      "Gry": "#D6D6D6",
+      "DimGry": "#B8B8B8",
+      "MedGry": "#7C7C7C",
+      "DeepGry": "#545454"
+    }
+  },
+
+  "thematic": {
+    "gender3": {
+      "weiblich": "#349894",
+      "maennlich": "#FFD736",
+      "nichtbinaer": "#986AD5"
+    },
+    "gender6_herkunft": {
+      "weiblich_ch": "#00615D",
+      "weiblich_aus": "#349894",
+      "maennlich_ch": "#DA9C00",
+      "maennlich_aus": "#FFD736",
+      "nichtbinaer_ch": "#5E359A",
+      "nichtbinaer_aus": "#986AD5"
+    },
+    "gender5_ehe": {
+      "frau_frau": "#349894",
+      "mann_mann": "#FFD736",
+      "gleichgeschlechtlich": "#3431DE",
+      "frau_unbekannt": "#B8B8B8",
+      "mann_unbekannt": "#D6D6D6"
+    }
+  },
+
+  "theme_web": {
+    "text": "#737373",
+    "text_dark": "#020304",
+    "grid": "#D6D6D6",
+    "axis": "#737373",
+    "background": "#FFFFFF",
+    "background_page": "#FAFAFA",
+    "font_family": "HelveticaNeueLTPro, Helvetica Neue, Arial, sans-serif",
+    "font_size_base_pt": 8.2,
+    "legend_position": "bottom",
+    "gridlines": "y-only",
+    "axis_line_width": 0.25,
+    "axis_tick_length_cm": 0.1
+  },
+
+  "theme_print": {
+    "text": "#020304",
+    "grid": "#020304",
+    "background": "#FFFFFF",
+    "font_family": "HelveticaNeueLTPro, Helvetica Neue, Arial, sans-serif",
+    "font_size_base_pt": 8.2,
+    "legend_position": "left",
+    "gridlines": "y-only",
+    "grid_line_width_rel": 3
+  }
+}
